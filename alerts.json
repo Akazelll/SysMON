@@ -1,0 +1,7 @@
+[
+  {
+    "Metric": "CPU",
+    "Threshold": 80,
+    "Duration": 5
+  }
+]

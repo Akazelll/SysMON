@@ -1,41 +1,62 @@
 package services
 
 import (
+	"encoding/json"
 	"fmt"
+	"os"
+	"time"
 
 	"fyne.io/fyne/v2"
-
 	"sysmon-app/internal/models"
 )
 
-// AlertEngine bertugas mengevaluasi metrik terhadap aturan yang ada
 type AlertEngine struct {
 	Rules          []models.AlertRule
+	History        []string // Menyimpan catatan kapan alert menyala
 	App            fyne.App
-	breachCounters map[string]int // Menghitung berapa detik batas terlampaui
+	breachCounters map[string]int
+	filePath       string
 }
 
-// NewAlertEngine adalah Constructor
 func NewAlertEngine(app fyne.App) *AlertEngine {
-	return &AlertEngine{
+	e := &AlertEngine{
 		Rules:          make([]models.AlertRule, 0),
+		History:        make([]string, 0),
 		App:            app,
 		breachCounters: make(map[string]int),
+		filePath:       "alerts.json",
 	}
+	e.LoadRules()
+	return e
 }
 
-// AddRule menambahkan aturan baru ke dalam mesin
 func (e *AlertEngine) AddRule(rule models.AlertRule) {
 	e.Rules = append(e.Rules, rule)
+	e.SaveRules()
+}
+
+func (e *AlertEngine) SaveRules() {
+	data, _ := json.MarshalIndent(e.Rules, "", "  ")
+	_ = os.WriteFile(e.filePath, data, 0644)
+}
+
+func (e *AlertEngine) LoadRules() {
+	data, err := os.ReadFile(e.filePath)
+	if err == nil {
+		_ = json.Unmarshal(data, &e.Rules)
+	}
 }
 
 // Evaluate dipanggil setiap 1 detik untuk mengecek kondisi metrik terbaru
 func (e *AlertEngine) Evaluate(metrics models.SystemMetric) {
 	for _, rule := range e.Rules {
 		var currentValue float64
-		if rule.Metric == "CPU" {
+		
+		// Menggunakan tagged switch sesuai saran
+		switch rule.Metric {
+		case "CPU":
 			currentValue = metrics.CPUUsage
-		} else if rule.Metric == "RAM" {
+		case "RAM":
 			currentValue = metrics.RAMUsage
 		}
 
@@ -44,22 +65,20 @@ func (e *AlertEngine) Evaluate(metrics models.SystemMetric) {
 
 		// Evaluasi
 		if currentValue > rule.Threshold {
-			e.breachCounters[ruleKey]++ // Tambah 1 detik
+			e.breachCounters[ruleKey]++ 
 
-			// Jika durasi terlampaui
 			if e.breachCounters[ruleKey] >= rule.Duration {
-				// Kirim notifikasi bawaan OS!
-				title := "Peringatan Sistem: " + rule.Metric
-				content := fmt.Sprintf("%s melebihi batas %.1f%% selama %d detik!", rule.Metric, rule.Threshold, rule.Duration)
+				timestamp := time.Now().Format("15:04:05")
+				msg := fmt.Sprintf("[%s] ALERT: %s melebihi %.1f%%", timestamp, rule.Metric, rule.Threshold)
 				
-				notification := fyne.NewNotification(title, content)
+				e.History = append(e.History, msg)
+
+				notification := fyne.NewNotification("Sistem Kritis", msg)
 				e.App.SendNotification(notification)
 
-				// Reset counter agar tidak spam tiap detik setelah notifikasi muncul
 				e.breachCounters[ruleKey] = 0
 			}
 		} else {
-			// Jika metrik turun kembali sebelum batas waktu, reset hitungan ke 0
 			e.breachCounters[ruleKey] = 0
 		}
 	}

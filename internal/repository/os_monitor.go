@@ -42,8 +42,12 @@ func (m *OSMonitor) GetCurrentMetrics() models.SystemMetric {
 
 	vMem, _ := mem.VirtualMemory()
 	ramVal := 0.0
+	ramUsed := 0.0
+	ramTotal := 0.0
 	if vMem != nil {
 		ramVal = vMem.UsedPercent
+		ramUsed = float64(vMem.Used) / (1024 * 1024 * 1024)  // Byte ke GB
+		ramTotal = float64(vMem.Total) / (1024 * 1024 * 1024)
 	}
 
 	// 2. DISK (Ambil penggunaan partisi root/C:)
@@ -77,6 +81,8 @@ func (m *OSMonitor) GetCurrentMetrics() models.SystemMetric {
 		CPUUsage:   cpuVal,
 		RAMUsage:   ramVal,
 		DiskUsage:  diskVal,
+		RAMUsedGB: ramUsed,
+		RAMTotalGB: ramTotal,
 		NetRXSpeed: rxSpeed,
 		NetTXSpeed: txSpeed,
 	}
@@ -115,4 +121,11 @@ func (m *OSMonitor) GetTopProcesses() []models.ProcessStat {
 		return results[:15]
 	}
 	return results
+}
+func (m *OSMonitor) KillProcess(pid int32) error {
+	p, err := process.NewProcess(pid)
+	if err != nil {
+		return err
+	}
+	return p.Kill() // Memerlukan izin OS (admin/root jika proses sistem)
 }

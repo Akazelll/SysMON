@@ -8,6 +8,8 @@ type SystemMetric struct {
 	DiskUsage float64
 	NetRXSpeed float64 
 	NetTXSpeed float64
+	RAMUsedGB  float64 // Tambahan
+	RAMTotalGB float64
 }
 // Tambahkan di bagian bawah file internal/models/metric.go
 type ProcessStat struct {
@@ -15,4 +17,6 @@ type ProcessStat struct {
 	Name     string
 	CPUUsage float64
 	RAMUsage float32
+	RAMUsedGB float64
+	RAMTotalGB float64
 }
