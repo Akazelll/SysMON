@@ -13,13 +13,13 @@ import (
 type ProcessTable struct {
 	Table  *widget.Table
 	Data   []models.ProcessStat
-	SortBy string // Menyimpan kolom mana yang sedang di-sort ("CPU" atau "RAM")
+	SortBy string 
 }
 
 func NewProcessTable() *ProcessTable {
 	pt := &ProcessTable{
 		Data:   make([]models.ProcessStat, 0),
-		SortBy: "CPU", // Default sort berdasarkan CPU
+		SortBy: "CPU",
 	}
 
 	pt.Table = widget.NewTable(
@@ -32,7 +32,6 @@ func NewProcessTable() *ProcessTable {
 		func(i widget.TableCellID, o fyne.CanvasObject) {
 			label := o.(*widget.Label)
 			
-			// --- LOGIKA HEADER ---
 			if i.Row == 0 {
 				label.TextStyle = fyne.TextStyle{Bold: true}
 				switch i.Col {
@@ -40,7 +39,7 @@ func NewProcessTable() *ProcessTable {
 				case 1: label.SetText("NAMA PROSES")
 				case 2: 
 					txt := "CPU %"
-					if pt.SortBy == "CPU" { txt += " ↓" } // Beri tanda jika sedang aktif
+					if pt.SortBy == "CPU" { txt += " ↓" }
 					label.SetText(txt)
 				case 3: 
 					txt := "RAM %"
@@ -50,7 +49,6 @@ func NewProcessTable() *ProcessTable {
 				return
 			}
 
-			// --- LOGIKA DATA ---
 			if i.Row-1 < len(pt.Data) {
 				proc := pt.Data[i.Row-1]
 				label.TextStyle = fyne.TextStyle{Bold: false}
@@ -72,7 +70,6 @@ func NewProcessTable() *ProcessTable {
 	return pt
 }
 
-// sortData adalah fungsi internal untuk mengurutkan array Data
 func (pt *ProcessTable) sortData() {
 	sort.Slice(pt.Data, func(i, j int) bool {
 		if pt.SortBy == "RAM" {
@@ -82,9 +79,8 @@ func (pt *ProcessTable) sortData() {
 	})
 }
 
-// UpdateData sekarang otomatis melakukan sorting sebelum refresh tampilan
 func (pt *ProcessTable) UpdateData(newData []models.ProcessStat) {
 	pt.Data = newData
-	pt.sortData() // Urutkan dulu
+	pt.sortData()
 	pt.Table.Refresh()
 }

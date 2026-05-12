@@ -8,24 +8,19 @@ import (
 	"fyne.io/fyne/v2/container"
 )
 
-// SystemChart membungkus logika penggambaran grafik multi-garis
 type SystemChart struct {
 	Container *fyne.Container
 }
 
-// NewSystemChart adalah Constructor
 func NewSystemChart() *SystemChart {
 	return &SystemChart{
 		Container: container.NewWithoutLayout(),
 	}
 }
 
-// Update menggambar ulang grid, garis CPU, dan garis RAM
 func (sc *SystemChart) Update(cpuData []float64, ramData []float64, width float32, height float32) {
-	sc.Container.RemoveAll() // Bersihkan frame sebelumnya
-
-	// 1. Gambar Background Grid (Garis bantu horizontal)
-	gridColor := color.RGBA{R: 150, G: 150, B: 150, A: 80} // Abu-abu transparan
+	sc.Container.RemoveAll()
+	gridColor := color.RGBA{R: 150, G: 150, B: 150, A: 80} 
 	for i := 1; i <= 4; i++ {
 		y := height - (float32(i) * 25.0 / 100.0 * height)
 		
@@ -36,7 +31,6 @@ func (sc *SystemChart) Update(cpuData []float64, ramData []float64, width float3
 		sc.Container.Add(gridLine)
 	}
 
-	// Fungsi internal (Helper) untuk menggambar garis metrik
 	drawLine := func(data []float64, lineColor color.Color) {
 		if len(data) < 2 {
 			return
@@ -57,13 +51,9 @@ func (sc *SystemChart) Update(cpuData []float64, ramData []float64, width float3
 			sc.Container.Add(line)
 		}
 	}
-
-	// 2. Gambar Garis CPU (Merah Terang)
 	drawLine(cpuData, color.RGBA{R: 231, G: 76, B: 60, A: 255})
 	
-	// 3. Gambar Garis RAM (Biru Terang)
 	drawLine(ramData, color.RGBA{R: 52, G: 152, B: 219, A: 255})
 
-	// Render ulang ke layar
 	sc.Container.Refresh()
 }

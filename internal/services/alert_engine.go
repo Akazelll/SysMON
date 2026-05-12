@@ -12,7 +12,7 @@ import (
 
 type AlertEngine struct {
 	Rules          []models.AlertRule
-	History        []string // Menyimpan catatan kapan alert menyala
+	History        []string
 	App            fyne.App
 	breachCounters map[string]int
 	filePath       string
@@ -47,12 +47,10 @@ func (e *AlertEngine) LoadRules() {
 	}
 }
 
-// Evaluate dipanggil setiap 1 detik untuk mengecek kondisi metrik terbaru
 func (e *AlertEngine) Evaluate(metrics models.SystemMetric) {
 	for _, rule := range e.Rules {
 		var currentValue float64
 		
-		// Menggunakan tagged switch sesuai saran
 		switch rule.Metric {
 		case "CPU":
 			currentValue = metrics.CPUUsage
@@ -60,10 +58,8 @@ func (e *AlertEngine) Evaluate(metrics models.SystemMetric) {
 			currentValue = metrics.RAMUsage
 		}
 
-		// Buat kunci unik untuk tiap aturan
 		ruleKey := fmt.Sprintf("%s-%.1f", rule.Metric, rule.Threshold)
 
-		// Evaluasi
 		if currentValue > rule.Threshold {
 			e.breachCounters[ruleKey]++ 
 

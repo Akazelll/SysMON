@@ -9,7 +9,7 @@ import (
 	"fyne.io/fyne/v2/app"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/dialog"
-	"fyne.io/fyne/v2/layout" // Pastikan layout diimpor
+	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/widget"
 
 	"sysmon-app/internal/models"
@@ -35,7 +35,6 @@ func main() {
 	netLabel := widget.NewLabel("Net: RX - | TX - KB/s")
 
 	sysChart := ui.NewSystemChart()
-	// PERBAIKAN DI SINI: Menggunakan container.New dengan layout.NewGridWrapLayout
 	chartContainer := container.New(layout.NewGridWrapLayout(fyne.NewSize(500, 150)), sysChart.Container)
 	
 	exporter := services.NewExporter()
@@ -85,20 +84,15 @@ func main() {
 		rulesLabel,
 		widget.NewSeparator(),
 		widget.NewLabelWithStyle("History Triggered Alerts", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
-		// PERBAIKAN: Gunakan container.New untuk membungkus layout
 		container.New(layout.NewGridWrapLayout(fyne.NewSize(500, 200)), historyList),
 	)
 	procTable.Table.OnSelected = func(id widget.TableCellID) {
-		// Abaikan jika yang diklik adalah Header (baris 0)
 		if id.Row == 0 {
 			return
 		}
 
-		// Ambil data proses dari array berdasarkan baris yang diklik
-		// (id.Row - 1 karena baris 0 adalah header)
 		selectedProc := procTable.Data[id.Row-1]
 
-		// Tampilkan Dialog Konfirmasi
 		msg := fmt.Sprintf("Apakah Anda yakin ingin mematikan proses: %s (PID: %d)?", selectedProc.Name, selectedProc.PID)
 		confirmDialog := dialog.NewConfirm("Konfirmasi Kill Process", msg, func(ok bool) {
 			if ok {
@@ -109,7 +103,6 @@ func main() {
 					dialog.ShowInformation("Sukses", "Proses berhasil dihentikan.", myWindow)
 				}
 			}
-			// Deselect baris agar bisa diklik lagi nanti
 			procTable.Table.Unselect(id)
 		}, myWindow)
 

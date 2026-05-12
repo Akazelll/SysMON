@@ -19,7 +19,6 @@ type OSMonitor struct {
 }
 
 func NewOSMonitor() *OSMonitor {
-	// Ambil state network awal sebagai titik mulai
 	netStats, _ := net.IOCounters(false)
 	initialStat := net.IOCountersStat{}
 	if len(netStats) > 0 {
@@ -46,18 +45,16 @@ func (m *OSMonitor) GetCurrentMetrics() models.SystemMetric {
 	ramTotal := 0.0
 	if vMem != nil {
 		ramVal = vMem.UsedPercent
-		ramUsed = float64(vMem.Used) / (1024 * 1024 * 1024)  // Byte ke GB
+		ramUsed = float64(vMem.Used) / (1024 * 1024 * 1024)
 		ramTotal = float64(vMem.Total) / (1024 * 1024 * 1024)
 	}
 
-	// 2. DISK (Ambil penggunaan partisi root/C:)
 	diskStat, _ := disk.Usage("/")
 	diskVal := 0.0
 	if diskStat != nil {
 		diskVal = diskStat.UsedPercent
 	}
 
-	// 3. NETWORK (Hitung Throughput RX & TX)
 	netStats, _ := net.IOCounters(false)
 	var rxSpeed, txSpeed float64
 
@@ -67,12 +64,10 @@ func (m *OSMonitor) GetCurrentMetrics() models.SystemMetric {
 		elapsed := now.Sub(m.lastTime).Seconds()
 
 		if elapsed > 0 {
-			// Selisih byte dibagi detik = Bytes/second
 			rxSpeed = float64(currentStat.BytesRecv-m.lastNetStat.BytesRecv) / elapsed
 			txSpeed = float64(currentStat.BytesSent-m.lastNetStat.BytesSent) / elapsed
 		}
 
-		// Simpan state saat ini untuk kalkulasi detik berikutnya
 		m.lastNetStat = currentStat
 		m.lastTime = now
 	}
@@ -87,7 +82,6 @@ func (m *OSMonitor) GetCurrentMetrics() models.SystemMetric {
 		NetTXSpeed: txSpeed,
 	}
 }
-// GetTopProcesses mengambil daftar proses dan mengurutkannya berdasarkan CPU tertinggi
 func (m *OSMonitor) GetTopProcesses() []models.ProcessStat {
 	procs, err := process.Processes()
 	if err != nil {
@@ -100,7 +94,6 @@ func (m *OSMonitor) GetTopProcesses() []models.ProcessStat {
 		cpuPercent, _ := p.CPUPercent()
 		memPercent, _ := p.MemoryPercent()
 
-		// Filter proses yang kosong atau tidak ada namanya
 		if name != "" {
 			results = append(results, models.ProcessStat{
 				PID:      p.Pid,
@@ -111,12 +104,10 @@ func (m *OSMonitor) GetTopProcesses() []models.ProcessStat {
 		}
 	}
 
-	// Urutkan dari CPU Usage tertinggi ke terendah (Descending)
 	sort.Slice(results, func(i, j int) bool {
 		return results[i].CPUUsage > results[j].CPUUsage
 	})
 
-	// Ambil top 15 saja agar aplikasi tetap ringan
 	if len(results) > 15 {
 		return results[:15]
 	}
@@ -127,5 +118,5 @@ func (m *OSMonitor) KillProcess(pid int32) error {
 	if err != nil {
 		return err
 	}
-	return p.Kill() // Memerlukan izin OS (admin/root jika proses sistem)
+	return p.Kill() 
 }
