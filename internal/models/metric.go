@@ -9,7 +9,6 @@ type SystemMetric struct {
 	RAMUsedGB  float64
 	RAMTotalGB float64
 }
-// Tambahkan di bagian bawah file internal/models/metric.go
 type ProcessStat struct {
 	PID      int32
 	Name     string

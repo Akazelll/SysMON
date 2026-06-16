@@ -32,7 +32,6 @@ func NewOSMonitor() *OSMonitor {
 }
 
 func (m *OSMonitor) GetCurrentMetrics() models.SystemMetric {
-	// 1. CPU & RAM
 	cpuPercents, _ := cpu.Percent(time.Second, false)
 	cpuVal := 0.0
 	if len(cpuPercents) > 0 {

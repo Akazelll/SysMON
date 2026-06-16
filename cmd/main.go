@@ -2,14 +2,17 @@ package main
 
 import (
 	"fmt"
+	"image/color"
 	"strings"
 	"time"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/app"
+	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/layout"
+	"fyne.io/fyne/v2/storage"
 	"fyne.io/fyne/v2/widget"
 
 	"sysmon-app/internal/models"
@@ -19,43 +22,71 @@ import (
 )
 
 func main() {
-	myApp := app.New()
-	myWindow := myApp.NewWindow("System Resource Monitor Pro")
+	myApp := app.NewWithID("com.sysmon.app")
+	myWindow := myApp.NewWindow("SysMON - System Resource Monitor")
 
-	// --- SETUP DATA & BACKEND ---
 	monitor := repository.NewOSMonitor()
 	alertEngine := services.NewAlertEngine(myApp)
 	cpuBuffer := models.NewRingBuffer(60)
 	ramBuffer := models.NewRingBuffer(60)
 
-	// --- TAB 1: DASHBOARD ---
-	cpuLabel := widget.NewLabel("CPU: - %")
-	ramLabel := widget.NewLabel("RAM: - / - GB (- %)")
-	diskLabel := widget.NewLabel("Disk: - %")
-	netLabel := widget.NewLabel("Net: RX - | TX - KB/s")
+	cpuLabel := widget.NewLabelWithStyle("- %", fyne.TextAlignCenter, fyne.TextStyle{Bold: true})
+	ramLabel := widget.NewLabelWithStyle("- GB", fyne.TextAlignCenter, fyne.TextStyle{Bold: true})
+	diskLabel := widget.NewLabelWithStyle("- %", fyne.TextAlignCenter, fyne.TextStyle{Bold: true})
+	netLabel := widget.NewLabelWithStyle("↓ - | ↑ -", fyne.TextAlignCenter, fyne.TextStyle{Bold: true})
+
+	metricGrid := container.NewGridWithColumns(4,
+		widget.NewCard("CPU", "Processing", cpuLabel),
+		widget.NewCard("RAM", "Memory", ramLabel),
+		widget.NewCard("Disk", "Storage", diskLabel),
+		widget.NewCard("Net (KB/s)", "Bandwidth", netLabel),
+	)
 
 	sysChart := ui.NewSystemChart()
-	chartContainer := container.New(layout.NewGridWrapLayout(fyne.NewSize(500, 150)), sysChart.Container)
+
+	redIndicator := canvas.NewRectangle(color.RGBA{R: 231, G: 76, B: 60, A: 255})
+	redIndicator.SetMinSize(fyne.NewSize(12, 12))
+
+	blueIndicator := canvas.NewRectangle(color.RGBA{R: 52, G: 152, B: 219, A: 255})
+	blueIndicator.SetMinSize(fyne.NewSize(12, 12))
+
+	legendBox := container.NewHBox(
+		layout.NewSpacer(),
+		redIndicator, widget.NewLabel("CPU Usage (%)"),
+		widget.NewLabel("  |  "),
+		blueIndicator, widget.NewLabel("RAM Usage (%)"),
+		layout.NewSpacer(),
+	)
+
+	chartContent := container.NewVBox(
+		legendBox,
+		container.New(layout.NewGridWrapLayout(fyne.NewSize(500, 170)), sysChart.Container),
+	)
 	
+	chartCard := widget.NewCard("Live Performance (60s)", "", chartContent)
+
 	exporter := services.NewExporter()
-	exportBtn := widget.NewButton("Export CPU CSV", func() {
-		dialog.ShowFileSave(func(w fyne.URIWriteCloser, e error) {
+	exportBtn := widget.NewButton("Export CPU History to CSV", func() {
+		saveDialog := dialog.NewFileSave(func(w fyne.URIWriteCloser, e error) {
 			if w == nil { return }
+			defer w.Close() 
 			exporter.ExportCPUHistory(w, cpuBuffer.Data)
 			dialog.ShowInformation("Sukses", "Data riwayat CPU berhasil diexport!", myWindow)
 		}, myWindow)
+		
+		saveDialog.SetFilter(storage.NewExtensionFileFilter([]string{".csv"}))
+		saveDialog.SetFileName("cpu_history.csv")
+		saveDialog.Show()
 	})
 
-	dashboardTab := container.NewVBox(
+	dashboardTab := container.NewPadded(container.NewVBox(
+		metricGrid,
+		layout.NewSpacer(),
+		chartCard,
+		layout.NewSpacer(),
 		exportBtn,
-		container.NewGridWithColumns(2, cpuLabel, ramLabel),
-		container.NewGridWithColumns(2, diskLabel, netLabel),
-		widget.NewLabelWithStyle("Live Performance (60s)", fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
-		chartContainer,
-		widget.NewLabel("🟥 CPU Usage (%) | 🟦 RAM Usage (%)"),
-	)
+	))
 
-	// --- TAB 2: PROCESSES ---
 	procTable := ui.NewProcessTable()
 	sortSelect := widget.NewSelect([]string{"CPU", "RAM"}, func(v string) {
 		procTable.SortBy = v
@@ -63,41 +94,45 @@ func main() {
 	})
 	sortSelect.SetSelected("CPU")
 	
-	processTab := container.NewBorder(
-		container.NewHBox(widget.NewLabel("Urutkan:"), sortSelect), 
+	headerProc := container.NewHBox(
+		widget.NewLabelWithStyle("Running Processes", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
+		layout.NewSpacer(),
+		widget.NewLabel("Sort By:"),
+		sortSelect,
+	)
+
+	processTab := container.NewPadded(container.NewBorder(
+		container.NewVBox(headerProc, widget.NewSeparator()), 
 		nil, nil, nil, 
 		procTable.Table,
-	)
+	))
 
-	// --- TAB 3: ALERTS & HISTORY ---
 	historyList := widget.NewMultiLineEntry()
 	historyList.Disable() 
-	
-	rulesLabel := widget.NewLabel("Aturan Aktif: CPU > 15% (5s)")
+
+	rulesLabel := widget.NewLabel("No active rules.")
 	if len(alertEngine.Rules) > 0 {
 		r := alertEngine.Rules[0]
-		rulesLabel.SetText(fmt.Sprintf("Aturan Aktif: %s > %.0f%% (%ds)", r.Metric, r.Threshold, r.Duration))
+		rulesLabel.SetText(fmt.Sprintf("Status: %s > %.0f%% (Duration: %ds)", r.Metric, r.Threshold, r.Duration))
 	}
 
-	alertTab := container.NewVBox(
-		widget.NewLabelWithStyle("Konfigurasi Alert", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
-		rulesLabel,
-		widget.NewSeparator(),
-		widget.NewLabelWithStyle("History Triggered Alerts", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
-		container.New(layout.NewGridWrapLayout(fyne.NewSize(500, 200)), historyList),
+	configCard := widget.NewCard("Konfigurasi Aktif", "Aturan pemicu peringatan", rulesLabel)
+	historyCard := widget.NewCard("Log Peringatan", "Riwayat threshold yang terlewati", 
+		container.New(layout.NewGridWrapLayout(fyne.NewSize(500, 250)), historyList),
 	)
+
+	alertTab := container.NewPadded(container.NewVBox(
+		configCard,
+		historyCard,
+	))
+
 	procTable.Table.OnSelected = func(id widget.TableCellID) {
-		if id.Row == 0 {
-			return
-		}
-
+		if id.Row == 0 { return }
 		selectedProc := procTable.Data[id.Row-1]
-
-		msg := fmt.Sprintf("Apakah Anda yakin ingin mematikan proses: %s (PID: %d)?", selectedProc.Name, selectedProc.PID)
-		confirmDialog := dialog.NewConfirm("Konfirmasi Kill Process", msg, func(ok bool) {
+		msg := fmt.Sprintf("Hentikan proses %s (PID: %d)?", selectedProc.Name, selectedProc.PID)
+		dialog.ShowConfirm("Kill Process", msg, func(ok bool) {
 			if ok {
-				err := monitor.KillProcess(selectedProc.PID)
-				if err != nil {
+				if err := monitor.KillProcess(selectedProc.PID); err != nil {
 					dialog.ShowError(err, myWindow)
 				} else {
 					dialog.ShowInformation("Sukses", "Proses berhasil dihentikan.", myWindow)
@@ -105,20 +140,17 @@ func main() {
 			}
 			procTable.Table.Unselect(id)
 		}, myWindow)
-
-		confirmDialog.Show()
 	}
 
-	// --- GABUNGKAN KE TABS ---
 	tabs := container.NewAppTabs(
 		container.NewTabItem("Dashboard", dashboardTab),
 		container.NewTabItem("Processes", processTab),
-		container.NewTabItem("Alert Logs", alertTab),
+		container.NewTabItem("Alerts", alertTab),
 	)
+	tabs.SetTabLocation(container.TabLocationTop)
 
 	myWindow.SetContent(tabs)
 
-	// --- LOOP UTAMA (Goroutine) ---
 	go func() {
 		for {
 			metrics := monitor.GetCurrentMetrics()
@@ -127,12 +159,12 @@ func main() {
 			cpuBuffer.Add(metrics.CPUUsage)
 			ramBuffer.Add(metrics.RAMUsage)
 
-			cpuLabel.SetText(fmt.Sprintf("CPU: %.2f%%", metrics.CPUUsage))
-			ramLabel.SetText(fmt.Sprintf("RAM: %.2f / %.2f GB (%.1f%%)", metrics.RAMUsedGB, metrics.RAMTotalGB, metrics.RAMUsage))
-			diskLabel.SetText(fmt.Sprintf("Disk: %.1f%%", metrics.DiskUsage))
-			netLabel.SetText(fmt.Sprintf("Net: RX %.1f | TX %.1f KB/s", metrics.NetRXSpeed/1024, metrics.NetTXSpeed/1024))
+			cpuLabel.SetText(fmt.Sprintf("%.1f %%", metrics.CPUUsage))
+			ramLabel.SetText(fmt.Sprintf("%.1f GB\n(%.1f%%)", metrics.RAMUsedGB, metrics.RAMUsage))
+			diskLabel.SetText(fmt.Sprintf("%.1f %%", metrics.DiskUsage))
+			netLabel.SetText(fmt.Sprintf("↓ %.1f\n↑ %.1f", metrics.NetRXSpeed/1024, metrics.NetTXSpeed/1024))
 
-			sysChart.Update(cpuBuffer.Data, ramBuffer.Data, 500, 150)
+			sysChart.Update(cpuBuffer.Data, ramBuffer.Data, 500, 170)
 			historyList.SetText(strings.Join(alertEngine.History, "\n"))
 
 			time.Sleep(1 * time.Second)
@@ -146,6 +178,6 @@ func main() {
 		}
 	}()
 
-	myWindow.Resize(fyne.NewSize(550, 650))
+	myWindow.Resize(fyne.NewSize(600, 500))
 	myWindow.ShowAndRun()
 }

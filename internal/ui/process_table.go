@@ -27,7 +27,10 @@ func NewProcessTable() *ProcessTable {
 			return len(pt.Data) + 1, 4
 		},
 		func() fyne.CanvasObject {
-			return widget.NewLabel("Template")
+			// Center text layout for better readability in cells
+			lbl := widget.NewLabel("")
+			lbl.Alignment = fyne.TextAlignCenter
+			return lbl
 		},
 		func(i widget.TableCellID, o fyne.CanvasObject) {
 			label := o.(*widget.Label)
@@ -36,7 +39,9 @@ func NewProcessTable() *ProcessTable {
 				label.TextStyle = fyne.TextStyle{Bold: true}
 				switch i.Col {
 				case 0: label.SetText("PID")
-				case 1: label.SetText("NAMA PROSES")
+				case 1: 
+					label.SetText("PROCESS NAME")
+					label.Alignment = fyne.TextAlignLeading
 				case 2: 
 					txt := "CPU %"
 					if pt.SortBy == "CPU" { txt += " ↓" }
@@ -54,7 +59,9 @@ func NewProcessTable() *ProcessTable {
 				label.TextStyle = fyne.TextStyle{Bold: false}
 				switch i.Col {
 				case 0: label.SetText(fmt.Sprintf("%d", proc.PID))
-				case 1: label.SetText(proc.Name)
+				case 1: 
+					label.SetText(proc.Name)
+					label.Alignment = fyne.TextAlignLeading
 				case 2: label.SetText(fmt.Sprintf("%.1f", proc.CPUUsage))
 				case 3: label.SetText(fmt.Sprintf("%.1f", proc.RAMUsage))
 				}
@@ -62,10 +69,11 @@ func NewProcessTable() *ProcessTable {
 		},
 	)
 
+	// Proporsi lebar disesuaikan dengan ukuran window yang baru
 	pt.Table.SetColumnWidth(0, 60)
-	pt.Table.SetColumnWidth(1, 200)
-	pt.Table.SetColumnWidth(2, 75)
-	pt.Table.SetColumnWidth(3, 75)
+	pt.Table.SetColumnWidth(1, 250) // Ruang lebih besar untuk nama proses
+	pt.Table.SetColumnWidth(2, 90)
+	pt.Table.SetColumnWidth(3, 90)
 
 	return pt
 }
