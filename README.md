@@ -30,7 +30,12 @@ Dikembangkan & diuji di **Windows 11**. Karena library `gopsutil` & `Fyne` cross
 
 ## 🏗️ Arsitektur (OOP & Layered)
 ```
-cmd/main.go                 → komposisi UI & wiring (presentation entrypoint)
+cmd/                        → presentation entrypoint (package main)
+ ├─ main.go                 → wiring dependency + rakit tab + jalankan app (ramping)
+ ├─ dashboard.go            → buildDashboardTab (metric cards, chart, disk, export)
+ ├─ process.go              → buildProcessTab (tabel proses + sort)
+ ├─ alerts.go               → buildAlertTab (form aturan, daftar aktif, log)
+ └─ sampling.go             → startSampling (goroutine update UI berkala)
 internal/
  ├─ models/                 → struktur data inti (tanpa dependensi eksternal)
  │   ├─ metric.go           → SystemMetric, DiskPartition, ProcessStat
@@ -51,7 +56,7 @@ internal/
 Penerapan prinsip OOP:
 * **Encapsulation:** field privat (`size`, `breachSince`, `historyPath`, `lastNetStat`, `mu`) hanya diakses lewat method; akses concurrent dilindungi `sync.Mutex`.
 * **Abstraction:** `OSMonitor` menyembunyikan detail gopsutil; UI hanya tahu `SystemMetric`.
-* **Separation of concerns:** model ⇄ repository ⇄ service ⇄ UI tidak saling bocor.
+* **Separation of concerns:** model ⇄ repository ⇄ service ⇄ UI tidak saling bocor. Presentation layer (`cmd/`) sendiri dipecah per-tab: tiap tab punya fungsi *builder* (`buildDashboardTab`, `buildProcessTab`, `buildAlertTab`), sementara `main.go` hanya merakit dan loop update dipusatkan di `startSampling`. Widget yang perlu di-refresh berkala dibungkus struct `dashboardUI` agar dependensinya eksplisit.
 
 ## 🚀 Setup & Menjalankan
 
