@@ -4,6 +4,8 @@ import (
 	"encoding/csv"
 	"fmt"
 	"io"
+
+	"sysmon-app/internal/models"
 )
 
 type Exporter struct{}
@@ -12,19 +14,29 @@ func NewExporter() *Exporter {
 	return &Exporter{}
 }
 
-func (e *Exporter) ExportCPUHistory(writer io.Writer, cpuData []float64) error {
+func (e *Exporter) ExportMetrics(writer io.Writer, samples []models.MetricSample) error {
 	csvWriter := csv.NewWriter(writer)
 	defer csvWriter.Flush()
 
-	_ = csvWriter.Write([]string{"Detik Ke (Mundur)", "CPU Usage (%)"})
-
-	for i, val := range cpuData {
-		record := []string{
-			fmt.Sprintf("%d", len(cpuData)-i),
-			fmt.Sprintf("%.2f", val),
-		}
-		_ = csvWriter.Write(record)
+	header := []string{"Timestamp", "CPU (%)", "RAM (%)", "Disk (%)", "Net RX (KB/s)", "Net TX (KB/s)"}
+	if err := csvWriter.Write(header); err != nil {
+		return err
 	}
 
-	return nil
+	for _, s := range samples {
+		record := []string{
+			s.Time.Format("2006-01-02 15:04:05"),
+			fmt.Sprintf("%.2f", s.CPUUsage),
+			fmt.Sprintf("%.2f", s.RAMUsage),
+			fmt.Sprintf("%.2f", s.DiskUsage),
+			fmt.Sprintf("%.2f", s.NetRXSpeed/1024),
+			fmt.Sprintf("%.2f", s.NetTXSpeed/1024),
+		}
+		if err := csvWriter.Write(record); err != nil {
+			return err
+		}
+	}
+
+	csvWriter.Flush()
+	return csvWriter.Error()
 }

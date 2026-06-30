@@ -27,7 +27,6 @@ func NewProcessTable() *ProcessTable {
 			return len(pt.Data) + 1, 4
 		},
 		func() fyne.CanvasObject {
-			// Center text layout for better readability in cells
 			lbl := widget.NewLabel("")
 			lbl.Alignment = fyne.TextAlignCenter
 			return lbl
@@ -69,9 +68,8 @@ func NewProcessTable() *ProcessTable {
 		},
 	)
 
-	// Proporsi lebar disesuaikan dengan ukuran window yang baru
 	pt.Table.SetColumnWidth(0, 60)
-	pt.Table.SetColumnWidth(1, 250) // Ruang lebih besar untuk nama proses
+	pt.Table.SetColumnWidth(1, 250) 
 	pt.Table.SetColumnWidth(2, 90)
 	pt.Table.SetColumnWidth(3, 90)
 

@@ -1,0 +1,13 @@
+# Dokumen soal — tidak ikut repo
+Spesifikasi.md
+
+# State runtime aplikasi (dibuat otomatis saat dijalankan)
+alerts.json
+alert_history.json
+
+# Output export CSV
+*.csv
+
+# Build output (binary hasil go build)
+sysmon
+sysmon.exe

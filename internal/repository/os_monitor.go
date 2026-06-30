@@ -32,10 +32,14 @@ func NewOSMonitor() *OSMonitor {
 }
 
 func (m *OSMonitor) GetCurrentMetrics() models.SystemMetric {
-	cpuPercents, _ := cpu.Percent(time.Second, false)
+	perCore, _ := cpu.Percent(time.Second, true)
 	cpuVal := 0.0
-	if len(cpuPercents) > 0 {
-		cpuVal = cpuPercents[0]
+	if len(perCore) > 0 {
+		sum := 0.0
+		for _, c := range perCore {
+			sum += c
+		}
+		cpuVal = sum / float64(len(perCore))
 	}
 
 	vMem, _ := mem.VirtualMemory()
@@ -48,10 +52,10 @@ func (m *OSMonitor) GetCurrentMetrics() models.SystemMetric {
 		ramTotal = float64(vMem.Total) / (1024 * 1024 * 1024)
 	}
 
-	diskStat, _ := disk.Usage("/")
+	disks := m.getDiskPartitions()
 	diskVal := 0.0
-	if diskStat != nil {
-		diskVal = diskStat.UsedPercent
+	if len(disks) > 0 {
+		diskVal = disks[0].UsedPercent
 	}
 
 	netStats, _ := net.IOCounters(false)
@@ -73,13 +77,38 @@ func (m *OSMonitor) GetCurrentMetrics() models.SystemMetric {
 
 	return models.SystemMetric{
 		CPUUsage:   cpuVal,
+		CPUPerCore: perCore,
 		RAMUsage:   ramVal,
 		DiskUsage:  diskVal,
-		RAMUsedGB: ramUsed,
+		Disks:      disks,
+		RAMUsedGB:  ramUsed,
 		RAMTotalGB: ramTotal,
 		NetRXSpeed: rxSpeed,
 		NetTXSpeed: txSpeed,
 	}
+}
+
+func (m *OSMonitor) getDiskPartitions() []models.DiskPartition {
+	partitions, err := disk.Partitions(false)
+	if err != nil {
+		return nil
+	}
+
+	const gb = 1024 * 1024 * 1024
+	var results []models.DiskPartition
+	for _, p := range partitions {
+		usage, err := disk.Usage(p.Mountpoint)
+		if err != nil || usage == nil || usage.Total == 0 {
+			continue
+		}
+		results = append(results, models.DiskPartition{
+			Mountpoint:  p.Mountpoint,
+			UsedPercent: usage.UsedPercent,
+			UsedGB:      float64(usage.Used) / gb,
+			TotalGB:     float64(usage.Total) / gb,
+		})
+	}
+	return results
 }
 func (m *OSMonitor) GetTopProcesses() []models.ProcessStat {
 	procs, err := process.Processes()
@@ -111,11 +140,4 @@ func (m *OSMonitor) GetTopProcesses() []models.ProcessStat {
 		return results[:15]
 	}
 	return results
-}
-func (m *OSMonitor) KillProcess(pid int32) error {
-	p, err := process.NewProcess(pid)
-	if err != nil {
-		return err
-	}
-	return p.Kill() 
 }
