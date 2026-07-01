@@ -24,7 +24,7 @@ func main() {
 	metricHistory := models.NewMetricHistory(1800)
 
 	// Pembacaan awal (blocking ~1 dtk) untuk menentukan jumlah core & partisi.
-	initialMetrics := monitor.GetCurrentMetrics()
+	initialMetrics, _ := monitor.GetCurrentMetrics()
 
 	// ===================== TABS =====================
 	dashboardTab, dashUI := buildDashboardTab(myWindow, initialMetrics, metricHistory)

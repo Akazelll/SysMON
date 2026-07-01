@@ -31,8 +31,11 @@ func NewOSMonitor() *OSMonitor {
 	}
 }
 
-func (m *OSMonitor) GetCurrentMetrics() models.SystemMetric {
-	perCore, _ := cpu.Percent(time.Second, true)
+func (m *OSMonitor) GetCurrentMetrics() (models.SystemMetric, error) {
+	perCore, err := cpu.Percent(time.Second, true)
+	if err != nil {
+		return models.SystemMetric{}, err
+	}
 	cpuVal := 0.0
 	if len(perCore) > 0 {
 		sum := 0.0
@@ -42,15 +45,13 @@ func (m *OSMonitor) GetCurrentMetrics() models.SystemMetric {
 		cpuVal = sum / float64(len(perCore))
 	}
 
-	vMem, _ := mem.VirtualMemory()
-	ramVal := 0.0
-	ramUsed := 0.0
-	ramTotal := 0.0
-	if vMem != nil {
-		ramVal = vMem.UsedPercent
-		ramUsed = float64(vMem.Used) / (1024 * 1024 * 1024)
-		ramTotal = float64(vMem.Total) / (1024 * 1024 * 1024)
+	vMem, err := mem.VirtualMemory()
+	if err != nil {
+		return models.SystemMetric{}, err
 	}
+	ramVal := vMem.UsedPercent
+	ramUsed := float64(vMem.Used) / (1024 * 1024 * 1024)
+	ramTotal := float64(vMem.Total) / (1024 * 1024 * 1024)
 
 	disks := m.getDiskPartitions()
 	diskVal := 0.0
@@ -58,7 +59,10 @@ func (m *OSMonitor) GetCurrentMetrics() models.SystemMetric {
 		diskVal = disks[0].UsedPercent
 	}
 
-	netStats, _ := net.IOCounters(false)
+	netStats, err := net.IOCounters(false)
+	if err != nil {
+		return models.SystemMetric{}, err
+	}
 	var rxSpeed, txSpeed float64
 
 	if len(netStats) > 0 {
@@ -85,7 +89,7 @@ func (m *OSMonitor) GetCurrentMetrics() models.SystemMetric {
 		RAMTotalGB: ramTotal,
 		NetRXSpeed: rxSpeed,
 		NetTXSpeed: txSpeed,
-	}
+	}, nil
 }
 
 func (m *OSMonitor) getDiskPartitions() []models.DiskPartition {
@@ -110,10 +114,10 @@ func (m *OSMonitor) getDiskPartitions() []models.DiskPartition {
 	}
 	return results
 }
-func (m *OSMonitor) GetTopProcesses() []models.ProcessStat {
+func (m *OSMonitor) GetTopProcesses() ([]models.ProcessStat, error) {
 	procs, err := process.Processes()
 	if err != nil {
-		return nil
+		return nil, err
 	}
 
 	var results []models.ProcessStat
@@ -137,7 +141,7 @@ func (m *OSMonitor) GetTopProcesses() []models.ProcessStat {
 	})
 
 	if len(results) > 15 {
-		return results[:15]
+		return results[:15], nil
 	}
-	return results
+	return results, nil
 }
